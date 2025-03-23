@@ -25,7 +25,7 @@ L'analyse des ventes par produit permet d'identifier les produits qui contribuen
 - Le **Produit E** présente le volume de ventes le plus élevé (35 unités)
 - Le **Produit A** montre un bon équilibre entre volume (24 unités) et chiffre d'affaires (1 199,76 €)
 
-Ces données suggèrent une stratégie commerciale orientée vers la promotion des produits à forte marge, en particulier le Produit D qui génère le plus de revenus malgré un volume de ventes intermédiaire.
+Ces données suggèrent une stratégie commerciale orientée vers la promotion des produits à forte marge, en particulier le Produit D qui génère le plus de revenus malgré un volume de ventes intermédiaire (marge à prendre en compte).
 
 ## 3. Ventes par Région (Ville)
 
@@ -44,10 +44,9 @@ Cette analyse montre la répartition géographique des ventes, permettant d'iden
 **Observations clés**:
 - **Lyon** génère le plus de chiffre d'affaires (1 059,79 €), suivi de près par Marseille
 - **Marseille** présente le volume de ventes le plus élevé (27 unités)
-- **Paris** maintient une performance solide avec 799,80 € de chiffre d'affaires
 - **Lille** et **Strasbourg** présentent des performances nettement inférieures aux autres villes
 
-Cette analyse suggère qu'une stratégie régionale différenciée pourrait être bénéfique, en renforçant la présence dans les zones les plus performantes (Lyon, Marseille, Bordeaux) et en révisant les approches commerciales dans les régions moins performantes.
+Cette analyse suggère qu'une stratégie régionale différenciée pourrait être bénéfique, en renforçant la présence dans les zones les plus performantes (Lyon, Marseille, Bordeaux) et en révisant les approches commerciales dans les régions moins performantes (localisation à prendre en compte, densité de population, désserte, évenement exceptionnel).
 
 ## 4. Performance des Magasins
 
