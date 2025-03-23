@@ -1,6 +1,8 @@
 #!/bin/bash
 
 echo "======================================"
+echo "Initialisation et importation de la base de données"
+echo "======================================"
 echo "Informations système:"
 echo "- Date et heure: $(date)"
 echo "- SQLite version: $(sqlite3 --version)"
@@ -10,7 +12,6 @@ echo "======================================"
 # Définir les chemins internes au conteneur
 DB_PATH="/app/database/ventes.db"
 SCHEMA_FILE="/app/scripts/schema.sql"
-SEED_FILE="/app/scripts/seed.sql"  # Optionnel : données de test
 
 echo "Création et initialisation de la base de données..."
 echo "Chemin de la base de données: $DB_PATH"
@@ -39,15 +40,6 @@ if [ -f "$DB_PATH" ]; then
 else
     echo "❌ Erreur lors de la création de la base de données !"
     exit 1
-fi
-
-# Si un fichier de données existe, l'exécuter
-if [ -f "$SEED_FILE" ]; then
-    echo "📥 Insertion de données de test à partir de $SEED_FILE"
-    sqlite3 -batch -bail "$DB_PATH" < "$SEED_FILE"
-    echo "✅ Données de test insérées."
-else
-    echo "ℹ️ Aucune donnée de test trouvée (pas de seed.sql)."
 fi
 
 echo "======================================"

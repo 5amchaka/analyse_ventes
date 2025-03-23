@@ -29,8 +29,10 @@ WORKDIR /app
 RUN mkdir -p /app/data /app/results /app/database /app/scripts
 
 # Copie des scripts shell et SQL (depuis le contexte de build)
+COPY services/script-executor/scripts/ /app/scripts/
 COPY ../../init-scripts/init-db.sh /app/scripts/init-db.sh
-COPY ../../init-scripts/schema.sql /app/scripts/schema.sql
+COPY ../../sql/schema.sql /app/scripts/schema.sql
+COPY ../../sql/import-data.sql /app/scripts/import-data.sql
 
 # Rendre les scripts exécutables
 RUN chmod +x /app/scripts/*.sh
@@ -39,4 +41,4 @@ RUN chmod +x /app/scripts/*.sh
 EXPOSE 8080
 
 # Commande par défaut : exécution du script de test ou d'init
-CMD ["/app/scripts/init-db.sh"]
+CMD ["/app/scripts/start-service.sh"]
