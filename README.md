@@ -28,7 +28,7 @@ Le système est composé de deux services principaux :
 
 1. Clonez ce dépôt :
    ```bash
-   git clone <URL_DU_DEPOT>
+   git clone https://github.com/5amchaka/analyse_ventes.git
    cd analyse-ventes-docker
    ```
 
