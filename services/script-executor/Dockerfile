@@ -3,7 +3,7 @@ FROM alpine:latest
 
 # Installation des dépendances nécessaires
 RUN apk update && \
-    apk add --no-cache \
+    apk add --no-cache ncurses\
     bash \
     sqlite \
     python3 \
@@ -30,9 +30,8 @@ RUN mkdir -p /app/data /app/results /app/database /app/scripts
 
 # Copie des scripts shell et SQL (depuis le contexte de build)
 COPY services/script-executor/scripts/ /app/scripts/
-COPY ../../init-scripts/init-db.sh /app/scripts/init-db.sh
-COPY ../../sql/schema.sql /app/scripts/schema.sql
-COPY ../../sql/import-data.sql /app/scripts/import-data.sql
+COPY init-scripts/init-db.sh /app/scripts/init-db.sh
+COPY sql/ /app/scripts/
 
 # Rendre les scripts exécutables
 RUN chmod +x /app/scripts/*.sh
