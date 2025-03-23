@@ -1,8 +1,6 @@
 #!/bin/bash
 
 echo "======================================"
-echo "Bienvenue dans le service d'exécution des scripts!"
-echo "======================================"
 echo "Informations système:"
 echo "- Date et heure: $(date)"
 echo "- SQLite version: $(sqlite3 --version)"
