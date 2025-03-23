@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Service de stockage de données avec SQLite
+  data-storage:
+    image: alpine:latest
+    container_name: data-storage
+    volumes:
+      - db-data:/app/database
+      - ./init-scripts:/app/init-scripts
+    command: >
+      sh -c "apk update && 
+             apk add --no-cache sqlite && 
+             mkdir -p /app/database && 
+             echo 'SQLite service is running. Use docker exec -it data-storage sh to access the container.' && 
+             tail -f /dev/null"
+    healthcheck:
+      test: ["CMD", "sqlite3", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ventes-network
+
+  # Service d'exécution des scripts
+  script-executor:
+    build:
+      context: ./services/script-executor
+      dockerfile: Dockerfile
+    container_name: script-executor
+    volumes:
+      - db-data:/app/database
+      - ./data:/app/data
+      - ./results:/app/results
+    depends_on:
+      data-storage:
+        condition: service_healthy
+    environment:
+      - DB_PATH=/app/database/ventes.db
+    ports:
+      - "8080:8080"
+    networks:
+      - ventes-network
+
+volumes:
+  db-data:
+    name: db-data
+
+networks:
+  ventes-network:
+    driver: bridge
