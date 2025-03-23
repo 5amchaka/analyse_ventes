@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "======================================"
-echo "Hello service d'exécution des scripts!"
+echo "Hello données de ventes"
 echo "======================================"
 echo "Informations système:"
 echo "- Date et heure: $(date)"
@@ -9,11 +9,8 @@ echo "- SQLite version: $(sqlite3 --version)"
 echo "- Python version: $(python3 --version)"
 echo "======================================"
 
-# Définir les chemins importants
-DB_PATH="/app/database/ventes.db"
-DATA_DIR="/app/data"
-SCRIPTS_DIR="/app/scripts"
-IMPORT_SQL="$SCRIPTS_DIR/import-data.sql"
+# Charger les variables d'environnement
+source /app/scripts/env-loader.sh
 
 # Vérifier que la base de données existe (créée par init-db.sh)
 if [ ! -f "$DB_PATH" ]; then
@@ -41,23 +38,18 @@ echo "======================================"
 # Création du répertoire de données s'il n'existe pas
 mkdir -p $DATA_DIR
 
-# URLs de téléchargement des données
-url_produits="https://docs.google.com/spreadsheets/d/e/2PACX-1vSawI56WBC64foMT9pKCiY594fBZk9Lyj8_bxfgmq-8ck_jw1Z49qDeMatCWqBxehEVoM6U1zdYx73V/pub?gid=0&single=true&output=csv"
-url_magasins="https://docs.google.com/spreadsheets/d/e/2PACX-1vSawI56WBC64foMT9pKCiY594fBZk9Lyj8_bxfgmq-8ck_jw1Z49qDeMatCWqBxehEVoM6U1zdYx73V/pub?gid=714623615&single=true&output=csv"
-url_ventes="https://docs.google.com/spreadsheets/d/e/2PACX-1vSawI56WBC64foMT9pKCiY594fBZk9Lyj8_bxfgmq-8ck_jw1Z49qDeMatCWqBxehEVoM6U1zdYx73V/pub?gid=760830694&single=true&output=csv"
-
 # Téléchargement des fichiers CSV
 echo "Téléchargement des données produits..."
-curl -L "$url_produits" -o "$DATA_DIR/produits.csv"
+curl -L "$URL_PRODUITS" -o "$DATA_DIR/$PRODUITS_FILE"
 
 echo "Téléchargement des données magasins..."
-curl -L "$url_magasins" -o "$DATA_DIR/magasins.csv"
+curl -L "$URL_MAGASINS" -o "$DATA_DIR/$MAGASINS_FILE"
 
 echo "Téléchargement des données ventes..."
-curl -L "$url_ventes" -o "$DATA_DIR/ventes.csv"
+curl -L "$URL_VENTES" -o "$DATA_DIR/$VENTES_FILE"
 
 # Vérification des téléchargements
-if [ ! -f "$DATA_DIR/produits.csv" ] || [ ! -f "$DATA_DIR/magasins.csv" ] || [ ! -f "$DATA_DIR/ventes.csv" ]; then
+if [ ! -f "$DATA_DIR/$PRODUITS_FILE" ] || [ ! -f "$DATA_DIR/$MAGASINS_FILE" ] || [ ! -f "$DATA_DIR/$VENTES_FILE" ]; then
     echo "❌ Erreur lors du téléchargement des fichiers CSV!"
     exit 1
 fi

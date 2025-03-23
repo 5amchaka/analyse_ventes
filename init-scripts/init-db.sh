@@ -6,12 +6,10 @@ echo "======================================"
 echo "Informations système:"
 echo "- Date et heure: $(date)"
 echo "- SQLite version: $(sqlite3 --version)"
-echo "- Python version: $(python3 --version)"
 echo "======================================"
 
-# Définir les chemins internes au conteneur
-DB_PATH="/app/database/ventes.db"
-SCHEMA_FILE="/app/scripts/schema.sql"
+# Charger les variables d'environnement
+source /app/scripts/env-loader.sh
 
 echo "Création et initialisation de la base de données..."
 echo "Chemin de la base de données: $DB_PATH"
@@ -23,7 +21,7 @@ if [ ! -f "$SCHEMA_FILE" ]; then
     exit 1
 fi
 
-# Active les contraintes de clés étrangères
+# Active les contraintes de Fkey
 echo "PRAGMA foreign_keys = ON;" | sqlite3 "$DB_PATH"
 
 # Exécute le script SQL de création du schéma

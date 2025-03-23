@@ -10,12 +10,12 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-# Définir les chemins des fichiers
-DB_PATH="/app/database/ventes.db"
-SQL_SCRIPT="/app/scripts/analyses-ventes.sql"
-RESULTS_DIR="/app/results"
+# Charger les variables d'environnement
+source /app/scripts/env-loader.sh
+
+# Préparer le timestamp et le fichier de résultats
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-RESULTS_FILE="${RESULTS_DIR}/rapport_ventes_${TIMESTAMP}.txt"
+RESULTS_FILE="${RESULTS_DIR}/${RAPPORT_PREFIX}${TIMESTAMP}.txt"
 
 # Centrage sans tput (fallback à 80 cols)
 COLS=$(TERM=dumb tput cols 2>/dev/null || echo 80)
@@ -34,8 +34,8 @@ if [ ! -f "$DB_PATH" ]; then
 fi
 
 # Vérifier que le script SQL existe
-if [ ! -f "$SQL_SCRIPT" ]; then
-    printf "${RED}${BOLD}❌ Erreur: Script SQL non trouvé à $SQL_SCRIPT${RESET}\n"
+if [ ! -f "$ANALYSES_SQL" ]; then
+    printf "${RED}${BOLD}❌ Erreur: Script SQL non trouvé à $ANALYSES_SQL${RESET}\n"
     exit 1
 fi
 
@@ -56,7 +56,7 @@ mkdir -p "$RESULTS_DIR"
   printf "%s\n" "--------------------"
   printf "\n"
   sqlite3 -batch -column -header "$DB_PATH" <<EOF
-.read $SQL_SCRIPT
+.read $ANALYSES_SQL
 SELECT ROUND(chiffre_affaires_total, 2) AS 'CHIFFRE D''AFFAIRES TOTAL (€)', date_debut || ' à ' || date_fin AS 'PÉRIODE', nombre_ventes AS 'NOMBRE DE VENTES', quantite_totale AS 'QUANTITÉ TOTALE VENDUE' FROM temp_ca_total;
 EOF
   printf "\n\n"
@@ -66,7 +66,7 @@ EOF
   printf "%s\n" "--------------------"
   printf "\n"
   sqlite3 -batch -column -header "$DB_PATH" <<EOF
-.read $SQL_SCRIPT
+.read $ANALYSES_SQL
 SELECT id_produit AS 'RÉFÉRENCE', nom AS 'PRODUIT', quantite_totale AS 'QUANTITÉ VENDUE', ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', pourcentage_ca || ' %' AS 'PART DU CA (%)', nombre_ventes AS 'NB VENTES', quantite_moyenne_par_vente AS 'QTÉ MOY/VENTE' FROM temp_ca_produits;
 EOF
   printf "\n\n"
@@ -76,7 +76,7 @@ EOF
   printf "%s\n" "--------------------"
   printf "\n"
   sqlite3 -batch -column -header "$DB_PATH" <<EOF
-.read $SQL_SCRIPT
+.read $ANALYSES_SQL
 SELECT ville AS 'VILLE', ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', pourcentage_ca || ' %' AS 'PART DU CA (%)', nombre_ventes AS 'NB VENTES', quantite_totale AS 'QTÉ TOTALE', nombre_produits_differents AS 'DIVERSITÉ PRODUITS', ca_par_salarie || ' €' AS 'CA/EMPLOYÉ (€)' FROM temp_ca_villes;
 EOF
   printf "\n\n"

@@ -1,10 +1,13 @@
 -- Script SQL pour l'importation des données CSV dans la base de données SQLite
 -- Ce script gère l'importation des produits, magasins et ventes avec gestion des doublons
 
+-- IMPORTANT: Ce fichier est un template qui sera préprocessé par le script shell
+-- pour remplacer les chemins par leurs valeurs réelles
+
 -- Importation des produits
 .mode csv
 .headers on
-.import '/app/data/produits.csv' temp_produits
+.import '${DATA_DIR}/${PRODUITS_FILE}' temp_produits
 
 -- Supprimer la table temporaire si elle existe déjà
 DROP TABLE IF EXISTS temp_produits_clean;
@@ -29,7 +32,7 @@ DROP TABLE temp_produits_clean;
 -- Importation des magasins
 .mode csv
 .headers on
-.import '/app/data/magasins.csv' temp_magasins
+.import '${DATA_DIR}/${MAGASINS_FILE}' temp_magasins
 
 -- Supprimer la table temporaire si elle existe déjà
 DROP TABLE IF EXISTS temp_magasins_clean;
@@ -53,7 +56,7 @@ DROP TABLE temp_magasins_clean;
 -- Importation des ventes avec gestion des doublons
 .mode csv
 .headers on
-.import '/app/data/ventes.csv' temp_ventes
+.import '${DATA_DIR}/${VENTES_FILE}' temp_ventes
 
 -- Supprimer la table temporaire si elle existe déjà
 DROP TABLE IF EXISTS temp_ventes_clean;
