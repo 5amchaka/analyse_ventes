@@ -25,8 +25,8 @@ services:
   # Service d'exécution des scripts
   script-executor:
     build:
-      context: ./services/script-executor
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: services/script-executor/Dockerfile
     container_name: script-executor
     volumes:
       - db-data:/app/database

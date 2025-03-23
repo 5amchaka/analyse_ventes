@@ -11,29 +11,32 @@ RUN apk update && \
     py3-virtualenv \
     curl
 
-# Création d'un environnement virtuel
+# Création d'un environnement virtuel Python
 RUN python3 -m venv /venv
 
 # Installation des bibliothèques Python dans l'environnement virtuel
-RUN . /venv/bin/activate && pip install --upgrade pip && pip install pandas numpy
+# Important : utilisation de '&&' pour que l'environnement reste activé pendant la ligne
+RUN /venv/bin/pip install --upgrade pip && \
+    /venv/bin/pip install pandas numpy
 
-# Ajout du dossier /venv/bin au PATH
+# Ajout du dossier /venv/bin au PATH global
 ENV PATH="/venv/bin:$PATH"
 
-# Création d'un répertoire de travail
+# Définir le répertoire de travail principal
 WORKDIR /app
 
 # Création des répertoires pour les données et les résultats
-RUN mkdir -p /app/data /app/results
+RUN mkdir -p /app/data /app/results /app/database /app/scripts
 
-# Copie des scripts dans le conteneur
-COPY scripts/ /app/scripts/
+# Copie des scripts shell et SQL (depuis le contexte de build)
+COPY ../../init-scripts/init-db.sh /app/scripts/init-db.sh
+COPY ../../init-scripts/schema.sql /app/scripts/schema.sql
 
 # Rendre les scripts exécutables
 RUN chmod +x /app/scripts/*.sh
 
-# Exposer le port pour l'interaction (facultatif pour cette étape)
+# Exposer un port si une API ou un service est exposé (optionnel ici)
 EXPOSE 8080
 
-# Commande par défaut pour tester
-CMD ["/app/scripts/hello-world.sh"]
+# Commande par défaut : exécution du script de test ou d'init
+CMD ["/app/scripts/init-db.sh"]
