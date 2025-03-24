@@ -1,0 +1,12 @@
+services:
+  data-storage:
+    user: "${UID}:${GID}"
+    volumes:
+      - ./.env:/app/.env:ro
+
+  script-executor:
+    user: "${UID}:${GID}"
+    volumes:
+      - ./.env:/app/.env:ro
+    env_file:
+      - .env

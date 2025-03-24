@@ -6,10 +6,10 @@ echo "======================================"
 echo "Informations système:"
 echo "- Date et heure: $(date)"
 echo "- SQLite version: $(sqlite3 --version)"
-echo "- Python version: $(python3 --version)"
 echo "======================================"
 
 # Charger les variables d'environnement
+set -eu
 source /app/scripts/env-loader.sh
 
 # Vérifier que la base de données existe (créée par init-db.sh)

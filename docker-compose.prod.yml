@@ -1,0 +1,7 @@
+services:
+  data-storage:
+    restart: unless-stopped
+
+  script-executor:
+    #restart: unless-stopped
+    command: ["/app/scripts/start-service.sh"]

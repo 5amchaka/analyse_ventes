@@ -2,6 +2,7 @@
 # Script pour prétraiter les fichiers SQL templates et remplacer les variables d'environnement
 
 # Charger les variables d'environnement
+set -eu
 source /app/scripts/env-loader.sh
 
 # Fonction pour prétraiter un fichier SQL template
@@ -32,6 +33,6 @@ EOF" > "$output_file"
 }
 
 # Prétraiter le fichier import-data.sql
-preprocess_sql_template "$SCRIPTS_DIR/import-data-template.sql" "$SCRIPTS_DIR/import-data.sql"
+preprocess_sql_template "$SCRIPTS_DIR/import-data-template.sql" "$DATA_DIR/import-data.sql"
 
 # Ajouter d'autres prétraitements de fichiers SQL si nécessaire

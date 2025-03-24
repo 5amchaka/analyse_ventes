@@ -1,27 +1,25 @@
 version: '3.8'
 
 services:
-  # Service de stockage de données avec SQLite
   data-storage:
     build:
       context: .
       dockerfile: services/data-storage/Dockerfile
     container_name: data-storage
+    user: "${UID}:${GID}"
     volumes:
       - db-data:/app/database
       - ./init-scripts:/app/init-scripts:ro
       - ./.env:/app/.env:ro
-    restart: unless-stopped
+    networks:
+      - ventes-network
     healthcheck:
-      test: ["CMD", "sqlite3", "--version"]
-      interval: 30s
+      test: ["CMD", "/entrypoint.sh", "healthcheck"]
+      interval: 10s
       timeout: 5s
       retries: 3
       start_period: 5s
-    networks:
-      - ventes-network
 
-  # Service d'exécution des scripts
   script-executor:
     build:
       context: .
@@ -31,19 +29,14 @@ services:
       - db-data:/app/database
       - ./data:/app/data
       - ./results:/app/results
-      - ./.env:/app/.env:ro
     depends_on:
       data-storage:
         condition: service_healthy
-    env_file:
-      - ./.env
-    #restart: unless-stopped
     networks:
       - ventes-network
 
 volumes:
   db-data:
-    name: db-data
 
 networks:
   ventes-network:

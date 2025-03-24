@@ -11,6 +11,7 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 # Charger les variables d'environnement
+set -eu
 source /app/scripts/env-loader.sh
 
 # Préparer le timestamp et le fichier de résultats

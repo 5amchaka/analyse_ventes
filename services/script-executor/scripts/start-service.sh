@@ -1,14 +1,18 @@
 #!/bin/bash
 # Script principal optimisé pour démarrer le service d'analyse des ventes
 
-set -e  # Arrêter l'exécution en cas d'erreur
+set -eu
+source /app/scripts/env-loader.sh
 
 echo "======================================"
 echo "Démarrage du service d'analyse des ventes"
 echo "======================================"
 
+echo "👤 UID courant dans le conteneur : $(id -u)"
+echo "👥 GID courant dans le conteneur : $(id -g)"
+
 # Rendre tous les scripts exécutables
-chmod +x /app/scripts/*.sh
+#chmod +x /app/scripts/*.sh
 
 # Copier env-loader.sh s'il n'existe pas déjà dans le répertoire scripts
 if [ ! -f "/app/scripts/env-loader.sh" ]; then

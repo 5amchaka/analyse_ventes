@@ -35,7 +35,7 @@ SELECT
     p.nom,
     SUM(v.quantite) AS quantite_totale,
     SUM(v.quantite * p.prix) AS chiffre_affaires,
-    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT SUM(v.quantite * p.prix) FROM Ventes v JOIN Produits p USING id_produit), 2) AS pourcentage_ca,
+    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
     COUNT(DISTINCT v.id_vente) AS nombre_ventes,
     ROUND(AVG(v.quantite), 2) AS quantite_moyenne_par_vente
 FROM 
@@ -67,7 +67,7 @@ SELECT
     m.ville,
     SUM(v.quantite) AS quantite_totale,
     SUM(v.quantite * p.prix) AS chiffre_affaires,
-    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT SUM(v.quantite * p.prix) FROM Ventes v JOIN Produits p ON v.id_produit = p.id_produit), 2) AS pourcentage_ca,
+    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
     COUNT(DISTINCT v.id_vente) AS nombre_ventes,
     COUNT(DISTINCT p.id_produit) AS nombre_produits_differents,
     ROUND(SUM(v.quantite * p.prix) / m.nombre_salaries, 2) AS ca_par_salarie
