@@ -2,11 +2,14 @@
 # common.sh - Fonctions utilitaires communes
 
 # Style visuel cohérent
-declare -rg COLOR_HEADER="\033[1;34m"
-declare -rg COLOR_INFO="\033[1;36m"
-declare -rg COLOR_SUCCESS="\033[1;32m"
-declare -rg COLOR_ERROR="\033[1;31m"
-declare -rg COLOR_RESET="\033[0m"
+if [[ -z "${COLOR_HEADER+x}" ]]; then
+    readonly COLOR_HEADER="\033[1;34m"
+    readonly COLOR_INFO="\033[1;36m"
+    readonly COLOR_SUCCESS="\033[1;32m"
+    readonly COLOR_ERROR="\033[1;31m"
+    readonly COLOR_RESET="\033[0m"
+    readonly COLOR_WARNING="\033[1;33m"
+fi
 
 log_header() {
     echo -e "${COLOR_HEADER}"
@@ -26,6 +29,10 @@ log_success() {
 
 log_error() {
     echo -e "${COLOR_ERROR}[ERROR]${COLOR_RESET} $1" >&2
+}
+
+log_warning() {
+    echo -e "${COLOR_WARNING}[WARNING]${COLOR_RESET} $1"
 }
 
 validate_env() {
