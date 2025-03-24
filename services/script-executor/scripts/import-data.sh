@@ -1,34 +1,24 @@
 #!/bin/bash
 
-# Fonctions utilitaires améliorées
-function log_header() {
-    echo -e "\n\033[1;34m======================================\033[0m"
-    echo -e "\033[1;34m$1\033[0m"
-    echo -e "\033[1;34m======================================\033[0m"
+source /app/scripts/common.sh
+
+main() {
+    log_header "Hello données de ventes"
+    log_header "Informations système"
+    echo "- Date et heure: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    log_info "- SQLite version: $(sqlite3 --version | head -n1)"
+    
 }
 
-function log_info() {
-    echo -e "\033[1;36m[INFO]\033[0m $1"
+error_handler() {
+    log_error "Erreur ligne $1"
+    exit 1
 }
 
-function log_success() {
-    echo -e "\033[1;32m[SUCCESS]\033[0m $1"
-}
+trap 'error_handler $LINENO' ERR
+set -euo pipefail
 
-function log_error() {
-    echo -e "\033[1;31m[ERROR]\033[0m $1" >&2
-}
-
-function log_warning() {
-    echo -e "\033[1;33m[WARNING]\033[0m $1"
-}
-
-# --- Début du script ---
-log_header "Hello données de ventes"
-echo -e "\033[1;37mInformations système:\033[0m"
-echo "- Date et heure: $(date +'%Y-%m-%d %H:%M:%S %Z')"
-echo "- SQLite version: $(sqlite3 --version | head -n1)"
-echo -e "\033[1;34m======================================\033[0m"
+main "$@"
 
 # Chargement environnement
 set -eo pipefail
@@ -67,7 +57,7 @@ function download_file() {
     [[ "$url" =~ ^https?:// ]] || url="https://$url"
 
     log_info "Début du téléchargement: $label"
-    echo "Source: $url"
+    echo "Source: ${url##*/}"
     echo "Destination: $file"
 
     while [ $retry_count -lt $max_retries ]; do

@@ -1,9 +1,11 @@
 #!/bin/bash
-# Script pour prétraiter les fichiers SQL templates et remplacer les variables d'environnement
+# preprocess-sql.sh - Prétraitement des templates SQL
 
-# Charger les variables d'environnement
-set -eu
-source /app/scripts/env-loader.sh
+source /app/scripts/common.sh
+source /app/scripts/env-loader.sh|| {
+    log_error "Échec du chargement de l'environnement"
+    exit 1
+}
 
 # Fonction pour prétraiter un fichier SQL template
 preprocess_sql_template() {
@@ -11,28 +13,46 @@ preprocess_sql_template() {
   local output_file=$2
   
   if [ ! -f "$template_file" ]; then
-    echo "❌ Fichier template non trouvé: $template_file"
+    log_error "❌ Fichier template non trouvé: $template_file"
     return 1
   fi
-  
-  # Créer le répertoire de sortie si nécessaire
-  mkdir -p $(dirname "$output_file")
-  
-  # Remplacer les variables d'environnement
-  eval "cat <<EOF
-$(cat $template_file)
-EOF" > "$output_file"
-  
-  if [ $? -eq 0 ]; then
-    echo "✅ Fichier prétraité avec succès: $output_file"
-    return 0
-  else
-    echo "❌ Erreur lors du prétraitement du fichier: $template_file"
-    return 1
+
+  log_info "Début du prétraitement: ${template_file}"
+
+  # Création sécurisée du répertoire
+  local output_dir=$(dirname "$output_file")
+  if ! mkdir -p "$output_dir"; then
+      log_error "Échec de création du répertoire: $output_dir"
+      return 1
   fi
+
+  # Génération sécurisée avec vérification
+  if ! envsubst < "$template_file" > "$output_file"; then
+      log_error "Échec du prétraitement pour: $template_file"
+      return 1
+  fi
+
+  log_success "Fichier généré: ${output_file}"
+  return 0
 }
 
-# Prétraiter le fichier import-data.sql
-preprocess_sql_template "$SCRIPTS_DIR/import-data-template.sql" "$DATA_DIR/import-data.sql"
+main() {
+  log_header "PRÉTRAITEMENT SQL"
+  # Prétraiter le fichier import-data.sql
+  preprocess_sql_template \
+    "$SCRIPTS_DIR/import-data-template.sql" \
+    "$DATA_DIR/import-data.sql" || return 1
+  
+  # Ajouter d'autres prétraitements de fichiers SQL si nécessaire
+  
+  return 0
+}
 
-# Ajouter d'autres prétraitements de fichiers SQL si nécessaire
+# Gestion des erreurs et exécution
+if ! main; then
+    log_error "❌ Échec du prétraitement SQL"
+    exit 1
+fi
+
+log_success "✅ PRÉTRAITEMENT TERMINÉ AVEC SUCCÈS"
+exit 0

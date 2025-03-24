@@ -1,33 +1,9 @@
 #!/bin/bash
 # Script principal optimisé pour démarrer le service d'analyse des ventes
 
-set -eu
+#Chargement des dépendances
+source /app/scripts/common.sh
 source /app/scripts/env-loader.sh
-
-echo "======================================"
-echo "Démarrage du service d'analyse des ventes"
-echo "======================================"
-
-echo "👤 UID courant dans le conteneur : $(id -u)"
-echo "👥 GID courant dans le conteneur : $(id -g)"
-
-# Rendre tous les scripts exécutables
-#chmod +x /app/scripts/*.sh
-
-# Copier env-loader.sh s'il n'existe pas déjà dans le répertoire scripts
-if [ ! -f "/app/scripts/env-loader.sh" ]; then
-  cp /app/env-loader.sh /app/scripts/env-loader.sh
-  chmod +x /app/scripts/env-loader.sh
-fi
-
-# Charger les variables d'environnement
-source /app/scripts/env-loader.sh
-
-# Prétraitement des fichiers SQL templates si nécessaire
-if [ -f "/app/scripts/preprocess-sql.sh" ]; then
-  echo "Étape 0: Prétraitement des fichiers SQL..."
-  /app/scripts/preprocess-sql.sh
-fi
 
 # Fonction pour exécuter une étape avec gestion des erreurs
 run_step() {
@@ -35,37 +11,45 @@ run_step() {
   local step_name=$2
   local script_path=$3
   
-  echo "Étape $step_number: $step_name..."
+  log_info "Étape $step_number: $step_name..."
   if [ -f "$script_path" ]; then
-    "$script_path"
-    if [ $? -ne 0 ]; then
-      echo "❌ Erreur lors de $step_name."
+    if ! "$script_path"; then
+      log_error "❌ Erreur lors de $step_name."
       return 1
     fi
   else
-    echo "⚠️ Script non trouvé: $script_path"
+    log_error "⚠️ Script non trouvé: $script_path"
     return 1
   fi
   
   return 0
 }
 
-# Exécuter les étapes séquentiellement
-run_step 1 "Initialisation de la base de données" "/app/scripts/init-db.sh" && \
-run_step 2 "Importation des données" "/app/scripts/import-data.sh" && \
-run_step 3 "Analyse des données" "/app/scripts/run-analyses.sh"
+main() {
+    log_header "DÉMARRAGE DU SERVICE"
+    # Exécuter les étapes séquentiellement
+    run_step 1 "Initialisation de la base de données" "/app/scripts/init-db.sh" || return 1
+    run_step 2 "Importation des données" "/app/scripts/import-data.sh" || return 1
+    run_step 3 "Analyse des données" "/app/scripts/run-analyses.sh" || return 1
 
-# Vérifier le succès global
-if [ $? -eq 0 ]; then
-  echo "======================================"
-  echo "✅ Service d'analyse des ventes démarré avec succès."
-  echo "======================================"
-else
-  echo "======================================"
-  echo "❌ Des erreurs se sont produites lors du démarrage du service."
-  echo "======================================"
-  exit 1
+    return 0
+}
+
+# Demarrage du script
+set -eo pipefail
+
+log_info "👤 UID: $(id -u), 👥 GID: $(id -g)"
+
+# Pré-traitements SQL
+if [ -f "/app/scripts/preprocess-sql.sh" ]; then
+  log_info "Prétraitement des fichiers SQL..."
+  /app/scripts/preprocess-sql.sh
 fi
 
-# Maintenir le conteneur en vie pour permettre l'exécution de commandes
-#exec tail -f /dev/null
+# Exécution principale
+if main; then
+  log_success "✅ Service d'analyse des ventes exécuté avec succès."
+else
+  log_error "❌ Des erreurs se sont produites lors de l'exécution du service."
+  exit 1
+fi

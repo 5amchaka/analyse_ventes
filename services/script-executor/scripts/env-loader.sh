@@ -1,12 +1,16 @@
 #!/bin/bash
+# env-loader.sh - Chargement des variables d'environnement
+
+source /app/scripts/common.sh
 
 # Fonction pour charger les variables d'environnement à partir du fichier .env
 load_env() {
+  log_info "Chargement de l'environnement"
   local env_file=${1:-/app/.env}
   
   # Vérifier que le fichier existe
   if [ ! -f "$env_file" ]; then
-    echo "❌ Fichier .env non trouvé à $env_file"
+    log_error "❌ Fichier .env non trouvé à $env_file"
     return 1
   fi
   
@@ -31,10 +35,9 @@ load_env
 # Fonction de debug pour afficher les variables chargées (uniquement si DEBUG est activé)
 debug_env() {
   if [ "${DEBUG:-0}" = "1" ]; then
-    echo "Variables d'environnement chargées :"
-    echo "------------------------------------"
-    env | grep -v "^_" | sort
-    echo "------------------------------------"
+    log_header "Variables d'environnement chargées :"
+    env | grep -v "^_" 
+    
   fi
 }
 

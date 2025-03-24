@@ -1,33 +1,23 @@
 #!/bin/bash
+# init-db.sh - Initialisation de la base de données
 
-# Fonctions utilitaires
-function log_header() {
-    echo "======================================"
-    echo "$1"
-    echo "======================================"
-}
+source /app/scripts/common.sh
 
-function log_info() {
-    echo "[INFO] $1"
-}
 
-function log_error() {
-    echo "[ERROR] $1" >&2
-}
 
 # --- Initialisation de la base de données ---
 log_header "Initialisation SQLite"
-echo "Configuration:"
-echo "- Date: $(date)"
-echo "- SQLite version: $(sqlite3 --version)"
-echo "- Chemin DB: $DB_PATH"
-echo "======================================"
+log_header "Configuration:"
+log_info "- Date: $(date)"
+log_info "- SQLite version: $(sqlite3 --version)"
+log_info "- Chemin DB: $DB_PATH"
+
 
 # Chargement environnement
 source /app/scripts/env-loader.sh
 
 # Configuration SQLite optimisée
-log_info "Configuration des paramètres SQLite"
+log_header "Configuration des paramètres SQLite"
 {
     echo "PRAGMA journal_mode=WAL;" 
     echo "PRAGMA synchronous=NORMAL;"
@@ -62,8 +52,8 @@ if [[ -z "$TABLES" ]]; then
     exit 1
 fi
 
-log_header "Structure créée avec succès"
-echo "Tables disponibles:"
+log_success "Structure créée avec succès"
+log_header "Tables disponibles:"
 
 # Nouvelle version robuste
 sqlite3 "$DB_PATH" <<EOF | grep -v '^$'

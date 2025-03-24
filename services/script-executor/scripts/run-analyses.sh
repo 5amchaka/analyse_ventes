@@ -1,89 +1,90 @@
 #!/bin/bash
+# run-analyses.sh - Génération des rapports d'analyse
 
-# Définir les couleurs pour une sortie plus lisible
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-RESET='\033[0m'
-
-# Charger les variables d'environnement
-set -eu
+source /app/scripts/common.sh
 source /app/scripts/env-loader.sh
 
-# Préparer le timestamp et le fichier de résultats
+# Configuration
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_FILE="${RESULTS_DIR}/${RAPPORT_PREFIX}${TIMESTAMP}.txt"
 
-# Centrage sans tput (fallback à 80 cols)
-COLS=$(TERM=dumb tput cols 2>/dev/null || echo 80)
-
-# Fonction pour créer une ligne de séparation
-function separator() {
+# Fonction pour créer des séparateurs
+separator() {
     local char=$1
-    local color=$2
-    printf "${color}%*s${RESET}\n" "$COLS" "" | tr " " "$char"
+    log_header "$(printf "%${COLS}s" "" | tr " " "$char")"
 }
 
-# Vérifier que la base de données existe
-if [ ! -f "$DB_PATH" ]; then
-    printf "${RED}${BOLD}❌ Erreur: Base de données non trouvée à $DB_PATH${RESET}\n"
-    exit 1
-fi
+# Validation initiale
+validate_file() {
+    local file=$1
+    local desc=$2
+    
+    if [ ! -f "$file" ]; then
+        log_error "${desc} non trouvé(e) : $file"
+        exit 1
+    fi
+}
 
-# Vérifier que le script SQL existe
-if [ ! -f "$ANALYSES_SQL" ]; then
-    printf "${RED}${BOLD}❌ Erreur: Script SQL non trouvé à $ANALYSES_SQL${RESET}\n"
-    exit 1
-fi
-
-# Créer le répertoire de résultats s'il n'existe pas
-mkdir -p "$RESULTS_DIR"
-
-# Préparer le rapport
-{
-  printf "\n"
-  printf "%s\n" "================================================================================"
-  printf "%s\n" "                            RAPPORT D'ANALYSE DES VENTES                       "
-  printf "%s\n" "================================================================================"
-  printf "Date du rapport : %s\n" "$(date)"
-  printf "\n\n"
-
-  printf "%s\n" "--------------------"
-  printf "%s\n" "1. SYNTHÈSE DU CHIFFRE D'AFFAIRES"
-  printf "%s\n" "--------------------"
-  printf "\n"
-  sqlite3 -batch -column -header "$DB_PATH" <<EOF
+# Génération de section de rapport
+generate_section() {
+    local title=$1
+    local query=$2
+    
+    #separator "-" 
+    log_header "${title}"
+    sqlite3 -batch -column -header "$DB_PATH" <<EOF
 .read $ANALYSES_SQL
-SELECT ROUND(chiffre_affaires_total, 2) AS 'CHIFFRE D''AFFAIRES TOTAL (€)', date_debut || ' à ' || date_fin AS 'PÉRIODE', nombre_ventes AS 'NOMBRE DE VENTES', quantite_totale AS 'QUANTITÉ TOTALE VENDUE' FROM temp_ca_total;
+${query}
 EOF
-  printf "\n\n"
+}
 
-  printf "%s\n" "--------------------"
-  printf "%s\n" "2. ANALYSE DES VENTES PAR PRODUIT"
-  printf "%s\n" "--------------------"
-  printf "\n"
-  sqlite3 -batch -column -header "$DB_PATH" <<EOF
-.read $ANALYSES_SQL
-SELECT id_produit AS 'RÉFÉRENCE', nom AS 'PRODUIT', quantite_totale AS 'QUANTITÉ VENDUE', ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', pourcentage_ca || ' %' AS 'PART DU CA (%)', nombre_ventes AS 'NB VENTES', quantite_moyenne_par_vente AS 'QTÉ MOY/VENTE' FROM temp_ca_produits;
-EOF
-  printf "\n\n"
+main() {
+    log_header "DÉBUT DE L'ANALYSE"
+    
+    # Vérifications
+    validate_file "$DB_PATH" "Base de données"
+    validate_file "$ANALYSES_SQL" "Script SQL d'analyse"
+    
+    # Préparation environnement
+    mkdir -p "$RESULTS_DIR"
+    
+    # Génération du rapport
+    {
+        log_header "RAPPORT D'ANALYSE DES VENTES"
+        log_info "Généré le : $(date)"
+        
+        generate_section "SYNTHÈSE DU CHIFFRE D'AFFAIRES" \
+            "SELECT ROUND(chiffre_affaires_total, 2) AS 'CA TOTAL (€)', 
+            date_debut || ' à ' || date_fin AS PÉRIODE, 
+            nombre_ventes AS 'NB VENTES', 
+            quantite_totale AS 'QTÉ TOTALE' 
+            FROM temp_ca_total;"
 
-  printf "%s\n" "--------------------"
-  printf "%s\n" "3. ANALYSE DES VENTES PAR VILLE"
-  printf "%s\n" "--------------------"
-  printf "\n"
-  sqlite3 -batch -column -header "$DB_PATH" <<EOF
-.read $ANALYSES_SQL
-SELECT ville AS 'VILLE', ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', pourcentage_ca || ' %' AS 'PART DU CA (%)', nombre_ventes AS 'NB VENTES', quantite_totale AS 'QTÉ TOTALE', nombre_produits_differents AS 'DIVERSITÉ PRODUITS', ca_par_salarie || ' €' AS 'CA/EMPLOYÉ (€)' FROM temp_ca_villes;
-EOF
-  printf "\n\n"
-} | tee "$RESULTS_FILE"
+        generate_section "ANALYSE PAR PRODUIT" \
+            "SELECT id_produit AS RÉFÉRENCE, 
+            nom AS PRODUIT, 
+            quantite_totale AS 'QTÉ VENDUE', 
+            ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', 
+            pourcentage_ca || ' %' AS 'PART CA', 
+            nombre_ventes AS 'NB VENTES', 
+            quantite_moyenne_par_vente AS 'MOYENNE/VENTE' 
+            FROM temp_ca_produits;"
 
-printf "${GREEN}${BOLD}✅ Rapport d'analyse des ventes généré avec succès !${RESET}\n"
-separator "-" "$BLUE"
-printf "${CYAN}Pour visualiser le rapport ultérieurement:${RESET}\n"
-printf "${BOLD}cat %s${RESET}\n\n" "$RESULTS_FILE"
+        generate_section "ANALYSE PAR VILLE" \
+            "SELECT ville AS VILLE, 
+            ROUND(chiffre_affaires, 2) || ' €' AS 'CA (€)', 
+            pourcentage_ca || ' %' AS 'PART CA', 
+            nombre_ventes AS 'NB VENTES', 
+            quantite_totale AS 'QTÉ TOTALE', 
+            nombre_produits_differents AS 'DIVERSITÉ', 
+            ca_par_salarie || ' €' AS 'CA/EMPLOYÉ' 
+            FROM temp_ca_villes;"
+
+    } | tee "$RESULTS_FILE"
+
+    log_success "Rapport généré : ${RESULTS_FILE}"
+    #separator "="
+}
+
+# Exécution principale
+main

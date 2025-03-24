@@ -1,4 +1,3 @@
-# Analyse de ventes - Architecture Docker
 # Analyse de Ventes - Architecture Docker
 
 ## Description
