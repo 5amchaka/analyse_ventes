@@ -1,82 +1,173 @@
 #!/bin/bash
 
-echo "======================================"
-echo "Hello données de ventes"
-echo "======================================"
-echo "Informations système:"
-echo "- Date et heure: $(date)"
-echo "- SQLite version: $(sqlite3 --version)"
-echo "======================================"
+# Fonctions utilitaires améliorées
+function log_header() {
+    echo -e "\n\033[1;34m======================================\033[0m"
+    echo -e "\033[1;34m$1\033[0m"
+    echo -e "\033[1;34m======================================\033[0m"
+}
 
-# Charger les variables d'environnement
-set -eu
-source /app/scripts/env-loader.sh
+function log_info() {
+    echo -e "\033[1;36m[INFO]\033[0m $1"
+}
 
-# Vérifier que la base de données existe (créée par init-db.sh)
+function log_success() {
+    echo -e "\033[1;32m[SUCCESS]\033[0m $1"
+}
+
+function log_error() {
+    echo -e "\033[1;31m[ERROR]\033[0m $1" >&2
+}
+
+function log_warning() {
+    echo -e "\033[1;33m[WARNING]\033[0m $1"
+}
+
+# --- Début du script ---
+log_header "Hello données de ventes"
+echo -e "\033[1;37mInformations système:\033[0m"
+echo "- Date et heure: $(date +'%Y-%m-%d %H:%M:%S %Z')"
+echo "- SQLite version: $(sqlite3 --version | head -n1)"
+echo -e "\033[1;34m======================================\033[0m"
+
+# Chargement environnement
+set -eo pipefail
+source /app/scripts/env-loader.sh || {
+    log_error "Échec du chargement de l'environnement"
+    exit 1
+}
+
+# Vérification base de données
 if [ ! -f "$DB_PATH" ]; then
-    echo "❌ Base de données non trouvée à $DB_PATH"
-    echo "Veuillez exécuter init-db.sh en premier pour créer la structure de la base de données."
+    log_error "Base de données non trouvée à $DB_PATH"
+    log_info "Veuillez exécuter init-db.sh en premier"
     exit 1
 fi
 
-echo "✅ Base de données trouvée. Vérification des tables..."
+# Vérification structure
+required_tables=("Produits" "Magasins" "Ventes")
+missing_tables=()
 
-# Vérifier que les tables principales existent
-TABLES_COUNT=$(sqlite3 $DB_PATH "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('Produits', 'Magasins', 'Ventes');")
+for table in "${required_tables[@]}"; do
+    if ! sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table' AND name='$table';" | grep -q "$table"; then
+        missing_tables+=("$table")
+    fi
+done
 
-if [ "$TABLES_COUNT" -ne "3" ]; then
-    echo "❌ Structure de base de données incomplète. Veuillez exécuter init-db.sh."
+if [ ${#missing_tables[@]} -gt 0 ]; then
+    log_error "Tables manquantes: ${missing_tables[*]}"
     exit 1
 fi
 
-echo "✅ Structure de base de données validée."
+function download_file() {
+    local url=$1 file=$2 label=$3
+    local max_retries=3 retry_count=0 timeout=30
 
-echo "======================================"
-echo "Téléchargement et importation des données..."
-echo "======================================"
+    # Normalisation de l'URL
+    [[ "$url" =~ ^https?:// ]] || url="https://$url"
 
-# Création du répertoire de données s'il n'existe pas
-mkdir -p $DATA_DIR
+    log_info "Début du téléchargement: $label"
+    echo "Source: $url"
+    echo "Destination: $file"
 
-# Téléchargement des fichiers CSV
-echo "Téléchargement des données produits..."
-curl -L "$URL_PRODUITS" -o "$DATA_DIR/$PRODUITS_FILE"
+    while [ $retry_count -lt $max_retries ]; do
+        if curl -sS -L --fail \
+           --connect-timeout $timeout \
+           --max-time $((timeout * 2)) \
+           "$url" -o "$file.tmp"; then
+            
+            if [ -s "$file.tmp" ]; then
+                mv "$file.tmp" "$file"
+                log_success "Téléchargement réussi"
+                echo "Taille: $(du -h "$file" | cut -f1)"
+                return 0
+            else
+                log_warning "Fichier vide reçu"
+            fi
+        fi
 
-echo "Téléchargement des données magasins..."
-curl -L "$URL_MAGASINS" -o "$DATA_DIR/$MAGASINS_FILE"
+        ((retry_count++))
+        timeout=$((timeout + 10)) # Augmentation progressive
+        log_warning "Nouvelle tentative dans $((retry_count * 2)) secondes..."
+        sleep $((retry_count * 2))
+    done
 
-echo "Téléchargement des données ventes..."
-curl -L "$URL_VENTES" -o "$DATA_DIR/$VENTES_FILE"
+    log_error "Échec définitif du téléchargement"
+    return 1
+}
 
-# Vérification des téléchargements
-if [ ! -f "$DATA_DIR/$PRODUITS_FILE" ] || [ ! -f "$DATA_DIR/$MAGASINS_FILE" ] || [ ! -f "$DATA_DIR/$VENTES_FILE" ]; then
-    echo "❌ Erreur lors du téléchargement des fichiers CSV!"
-    exit 1
-fi
+log_header "Téléchargement des données"
+mkdir -p "$DATA_DIR"
 
-echo "✅ Fichiers CSV téléchargés avec succès!"
+# Liste des fichiers à télécharger
+downloads=(
+    "$URL_PRODUITS:$DATA_DIR/$PRODUITS_FILE:produits"
+    "$URL_MAGASINS:$DATA_DIR/$MAGASINS_FILE:magasins"
+    "$URL_VENTES:$DATA_DIR/$VENTES_FILE:ventes"
+)
 
-# Vérifier que le script SQL d'importation existe
+pids=()
+for item in "${downloads[@]}"; do
+    IFS=':' read -r url file label <<< "$item"
+    download_file "$url" "$file" "$label" &
+    pids+=($!)
+done
+
+# Attente avec gestion d'erreur
+for pid in "${pids[@]}"; do
+    if ! wait "$pid"; then
+        log_error "Un téléchargement a échoué"
+        exit 1
+    fi
+done
+
+# Validation des fichiers
+for item in "${downloads[@]}"; do
+    IFS=':' read -r _ file _ <<< "$item"
+    if [ ! -s "$file" ]; then
+        log_error "Fichier vide ou manquant: $(basename "$file")"
+        exit 1
+    fi
+done
+
+# Importation SQL avec vérification
+log_header "Importation des données"
 if [ ! -f "$IMPORT_SQL" ]; then
-    echo "❌ Script SQL d'importation non trouvé à $IMPORT_SQL"
+    log_error "Script SQL d'importation manquant: $IMPORT_SQL"
     exit 1
 fi
 
-# Exécution du script SQL d'importation
-echo "Importation des données dans la base de données..."
-sqlite3 $DB_PATH < "$IMPORT_SQL"
+if ! sqlite3 -bail "$DB_PATH" < "$IMPORT_SQL" 2>/tmp/sqlite_errors; then
+    log_error "Échec de l'importation SQL"
+    [ -s /tmp/sqlite_errors ] && log_info "Détails:\n$(cat /tmp/sqlite_errors)"
+    exit 1
+fi
+rm -f /tmp/sqlite_errors
 
-# Vérification de l'importation
-echo "Vérification de l'importation des données..."
-nb_produits=$(sqlite3 $DB_PATH "SELECT COUNT(*) FROM Produits;")
-nb_magasins=$(sqlite3 $DB_PATH "SELECT COUNT(*) FROM Magasins;")
-nb_ventes=$(sqlite3 $DB_PATH "SELECT COUNT(*) FROM Ventes;")
+# Vérification finale améliorée
+log_header "Vérification des données"
+echo -e "\033[1;37mStatistiques d'importation:\033[0m"
 
-echo "Nombre de produits importés: $nb_produits"
-echo "Nombre de magasins importés: $nb_magasins"
-echo "Nombre total de ventes: $nb_ventes"
+# Requête unique plus robuste
+results=$(sqlite3 -header -column "$DB_PATH" <<EOF
+.mode column
+.headers on
+SELECT 
+    'Produits' as Tableau,
+    COUNT(*) as "Nb entrées" 
+FROM Produits
+UNION ALL
+SELECT 
+    'Magasins',
+    COUNT(*)
+FROM Magasins
+UNION ALL
+SELECT 
+    'Ventes',
+    COUNT(*)
+FROM Ventes;
+EOF
+)
 
-echo "✅ Importation des données terminée avec succès!"
-echo "======================================"
-echo "Le service est prêt à exécuter les analyses de ventes."
-echo "======================================"
+# Affichage avec formatage natif SQLite
+echo "$results"

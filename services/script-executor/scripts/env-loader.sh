@@ -1,5 +1,4 @@
 #!/bin/bash
-# Script utilitaire optimisé pour charger les variables d'environnement
 
 # Fonction pour charger les variables d'environnement à partir du fichier .env
 load_env() {

@@ -1,0 +1,92 @@
+#!/bin/bash
+
+# Fonctions utilitaires
+function log_header() {
+    echo "======================================"
+    echo "$1"
+    echo "======================================"
+}
+
+function log_info() {
+    echo -e "\033[1;36m[INFO]\033[0m $1"
+}
+
+function log_error() {
+    echo "[ERROR] $1" >&2
+}
+
+# --- Début du script ---
+log_header "Hello données de ventes"
+echo "Informations système:"
+echo "- Date et heure: $(date)"
+echo "- SQLite version: $(sqlite3 --version)"
+echo "======================================"
+
+# Chargement environnement
+set -eu
+source /app/scripts/env-loader.sh
+
+# Vérification base de données
+if [ ! -f "$DB_PATH" ]; then
+    log_error "Base de données non trouvée à $DB_PATH"
+    log_info "Veuillez exécuter init-db.sh en premier"
+    exit 1
+fi
+
+# Vérification structure
+TABLES_COUNT=$(sqlite3 "$DB_PATH" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('Produits', 'Magasins', 'Ventes');")
+if [ "$TABLES_COUNT" -ne 3 ]; then
+    log_error "Structure de base incomplète (tables manquantes)"
+    exit 1
+fi
+
+# Téléchargement parallèle
+function download_with_retry() {
+    local url=$1 file=$2 label=$3
+    local max_retries=3 retry_count=0
+
+    while [ $retry_count -lt $max_retries ]; do
+        if curl -sS -L --fail --show-error "$url" -o "$file"; then
+            return 0
+        fi
+        ((retry_count++))
+        log_info "Nouvelle tentative ($retry_count/$max_retries) pour $label..."
+        sleep 2
+    done
+    log_error "Échec du téléchargement de $label"
+    return 1
+}
+
+log_header "Téléchargement des données"
+mkdir -p "$DATA_DIR"
+
+download_with_retry "$URL_PRODUITS" "$DATA_DIR/$PRODUITS_FILE" "produits" &
+pid1=$!
+download_with_retry "$URL_MAGASINS" "$DATA_DIR/$MAGASINS_FILE" "magasins" &
+pid2=$!
+download_with_retry "$URL_VENTES" "$DATA_DIR/$VENTES_FILE" "ventes" &
+pid3=$!
+
+wait $pid1 || exit 1
+wait $pid2 || exit 1
+wait $pid3 || exit 1
+
+# Importation SQL
+log_header "Importation des données"
+if [ ! -f "$IMPORT_SQL" ]; then
+    log_error "Script SQL d'importation manquant: $IMPORT_SQL"
+    exit 1
+fi
+
+if ! sqlite3 "$DB_PATH" < "$IMPORT_SQL"; then
+    log_error "Échec de l'importation SQL"
+    exit 1
+fi
+
+# Vérification finale
+log_info "Vérification des données importées:"
+echo "- Produits: $(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM Produits;")"
+echo "- Magasins: $(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM Magasins;")"
+echo "- Ventes: $(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM Ventes;")"
+
+log_header "Service prêt pour analyses"

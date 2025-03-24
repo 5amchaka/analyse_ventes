@@ -1,45 +1,87 @@
 #!/bin/bash
 
-echo "======================================"
-echo "Initialisation et importation de la base de données"
-echo "======================================"
-echo "Informations système:"
-echo "- Date et heure: $(date)"
+# Fonctions utilitaires
+function log_header() {
+    echo "======================================"
+    echo "$1"
+    echo "======================================"
+}
+
+function log_info() {
+    echo "[INFO] $1"
+}
+
+function log_error() {
+    echo "[ERROR] $1" >&2
+}
+
+# --- Initialisation de la base de données ---
+log_header "Initialisation SQLite"
+echo "Configuration:"
+echo "- Date: $(date)"
 echo "- SQLite version: $(sqlite3 --version)"
+echo "- Chemin DB: $DB_PATH"
 echo "======================================"
 
-# Charger les variables d'environnement
+# Chargement environnement
 source /app/scripts/env-loader.sh
 
-echo "Création et initialisation de la base de données..."
-echo "Chemin de la base de données: $DB_PATH"
-echo "Script SQL utilisé: $SCHEMA_FILE"
+# Configuration SQLite optimisée
+log_info "Configuration des paramètres SQLite"
+{
+    echo "PRAGMA journal_mode=WAL;" 
+    echo "PRAGMA synchronous=NORMAL;"
+    echo "PRAGMA foreign_keys=ON;"
+    echo "PRAGMA busy_timeout=5000;"
+} | sqlite3 "$DB_PATH" || {
+    log_error "Échec de la configuration SQLite"
+    exit 1
+}
 
-# Vérifie que le fichier SQL de schéma existe
+# Vérification du schéma SQL
 if [ ! -f "$SCHEMA_FILE" ]; then
-    echo "❌ Fichier SQL introuvable: $SCHEMA_FILE"
+    log_error "Fichier de schéma introuvable: $SCHEMA_FILE"
     exit 1
 fi
 
-# Active les contraintes de Fkey
-echo "PRAGMA foreign_keys = ON;" | sqlite3 "$DB_PATH"
-
-# Exécute le script SQL de création du schéma
-sqlite3 -batch -bail "$DB_PATH" < "$SCHEMA_FILE"
-
-# Vérifie la création de la base
-if [ -f "$DB_PATH" ]; then
-    echo "✅ Base de données créée avec succès !"
-    echo "Tables présentes :"
-    sqlite3 "$DB_PATH" ".tables"
-
-    echo "Structure de la table Ventes :"
-    sqlite3 "$DB_PATH" ".schema Ventes"
-else
-    echo "❌ Erreur lors de la création de la base de données !"
+# Exécution du schéma avec gestion d'erreur
+log_info "Application du schéma de base de données"
+if ! sqlite3 -bail "$DB_PATH" < "$SCHEMA_FILE"; then
+    log_error "Erreur lors de l'application du schéma"
+    echo "Dernière erreur SQLite:"
+    sqlite3 "$DB_PATH" "SELECT message FROM sqlite_master WHERE type='error' ORDER BY rowid DESC LIMIT 1;"
     exit 1
 fi
 
-echo "======================================"
-echo "Le service est prêt à exécuter les analyses de ventes."
-echo "======================================"
+# Vérification finale
+log_info "Vérification de la structure"
+TABLES=$(sqlite3 "$DB_PATH" ".tables")
+
+if [[ -z "$TABLES" ]]; then
+    log_error "Aucune table créée - schéma probablement vide"
+    exit 1
+fi
+
+log_header "Structure créée avec succès"
+echo "Tables disponibles:"
+
+# Nouvelle version robuste
+sqlite3 "$DB_PATH" <<EOF | grep -v '^$'
+SELECT name 
+FROM sqlite_master 
+WHERE type='table'
+AND name NOT LIKE 'sqlite_%' 
+ORDER BY name;
+EOF
+
+# Statistiques (debug)
+if [ "${DEBUG:-0}" = "1" ]; then
+    log_info "Debug - Détails des tables:"
+    sqlite3 "$DB_PATH" <<EOF
+SELECT 
+    name as table_name, 
+    sql as definition 
+FROM sqlite_master 
+WHERE type='table';
+EOF
+fi

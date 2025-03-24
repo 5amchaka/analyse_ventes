@@ -1,35 +1,50 @@
 # -------------------------------------------------------------------
-# 🗄️ Service de stockage de données SQLite
+# 🗄️ Service de stockage de données SQLite (Version sécurisée)
 # -------------------------------------------------------------------
   FROM alpine:3.19
 
-  # 📦 Installation des dépendances
+  # -------------------------------------------------------------------
+  # 📦 Installation des dépendances minimales
+  # -------------------------------------------------------------------
   RUN apk update && \
       apk add --no-cache \
           sqlite \
-          sudo && \
+          tini && \
       rm -rf /var/cache/apk/*
   
-  # 👤 Création de l'utilisateur non-root (configurable)
+  # -------------------------------------------------------------------
+  # 👤 Création de l'utilisateur non-root
+  # -------------------------------------------------------------------
   ARG USER_ID=1000
   ARG GROUP_ID=1000
   
   RUN addgroup -g ${GROUP_ID} dbgroup && \
-      adduser -D -u ${USER_ID} -G dbgroup dbuser && \
-      echo 'dbuser ALL=(ALL) NOPASSWD: /bin/chown, /bin/mkdir' >> /etc/sudoers
+      adduser -D -u ${USER_ID} -G dbgroup dbuser
   
-  # 📁 Préparation de l'environnement
+  # -------------------------------------------------------------------
+  # 📁 Configuration de l'environnement
+  # -------------------------------------------------------------------
   WORKDIR /app
-  RUN mkdir -p /app && \
-      chown dbuser:dbgroup /app
   
+  # Création des répertoires avec permissions sécurisées
+  RUN mkdir -p /app/database && \
+      chown -R dbuser:dbgroup /app && \
+      chmod 755 /app && \
+      chmod 700 /app/database  # Sécurité renforcée pour le volume
+  
+  # -------------------------------------------------------------------
   # 📂 Copie des fichiers
+  # -------------------------------------------------------------------
   COPY --chown=dbuser:dbgroup services/data-storage/entrypoint.sh /entrypoint.sh
-  RUN chmod +x /entrypoint.sh
+  RUN chmod 750 /entrypoint.sh  # rx pour l'utilisateur, aucun droit pour les autres
   
+  # -------------------------------------------------------------------
   # 🗃️ Configuration des volumes
+  # -------------------------------------------------------------------
   VOLUME /app/database
   
+  # -------------------------------------------------------------------
   # 🚀 Configuration runtime
+  # -------------------------------------------------------------------
   USER dbuser
-  ENTRYPOINT ["/entrypoint.sh"]
+  ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
