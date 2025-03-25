@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------
-# 🗄️ Service de stockage de données SQLite (Version sécurisée)
+# 🗄️ Service de stockage de données SQLite
 # -------------------------------------------------------------------
   FROM alpine:3.19
 

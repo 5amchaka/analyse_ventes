@@ -4,7 +4,6 @@
     FROM alpine:3.19
 
     # 📋 Metadata
-    LABEL maintainer="VotreÉquipe"
     LABEL description="Service d'exécution des scripts d'analyse de ventes"
     LABEL version="1.0"
 
