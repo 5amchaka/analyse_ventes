@@ -58,7 +58,7 @@ main() {
     log_header "IMPORTATION DES DONNÉES DE VENTES"
 
     # Chargement environnement
-set -eo pipefail
+    set -eo pipefail
     source /app/scripts/env-loader.sh || {
         log_error "Échec critique du chargement de l'environnement"
         exit 1
@@ -74,90 +74,91 @@ set -eo pipefail
         fi
     done
 
-    # Définition du chemin du script SQL d'importation
-    local IMPORT_SQL="$DATA_DIR/import-data.sql"
-
-# Vérification base de données
-if [ ! -f "$DB_PATH" ]; then
-    log_error "Base de données non trouvée à $DB_PATH"
-    log_info "Veuillez exécuter init-db.sh en premier"
-    exit 1
-fi
-
-# Vérification structure
-required_tables=("Produits" "Magasins" "Ventes")
-missing_tables=()
-
-for table in "${required_tables[@]}"; do
-    if ! sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table' AND name='$table';" | grep -q "$table"; then
-        missing_tables+=("$table")
-    fi
-done
-
-if [ ${#missing_tables[@]} -gt 0 ]; then
-    log_error "Tables manquantes: ${missing_tables[*]}"
-    exit 1
-fi
-
-log_header "Téléchargement des données"
-mkdir -p "$DATA_DIR"
-
-# Liste des fichiers à télécharger
-downloads=(
-    "$URL_PRODUITS:$DATA_DIR/$PRODUITS_FILE:produits"
-    "$URL_MAGASINS:$DATA_DIR/$MAGASINS_FILE:magasins"
-    "$URL_VENTES:$DATA_DIR/$VENTES_FILE:ventes"
-)
-
-pids=()
-for item in "${downloads[@]}"; do
-    IFS=':' read -r url file label <<< "$item"
-    download_file "$url" "$file" "$label" &
-    pids+=($!)
-done
-
-# Attente avec gestion d'erreur
-for pid in "${pids[@]}"; do
-    if ! wait "$pid"; then
-        log_error "Un téléchargement a échoué"
+    # Définition du chemin du script SQL d'importation (maintenant temporaire)
+    local IMPORT_SQL="${TEMP_SQL_DIR}/import-data.sql"
+    
+    
+    # Vérification base de données
+    if [ ! -f "$DB_PATH" ]; then
+        log_error "Base de données non trouvée à $DB_PATH"
+        log_info "Veuillez exécuter init-db.sh en premier"
         exit 1
     fi
-done
 
-# Validation des fichiers
-for item in "${downloads[@]}"; do
-    IFS=':' read -r _ file _ <<< "$item"
-    if [ ! -s "$file" ]; then
-        log_error "Fichier vide ou manquant: $(basename "$file")"
-        exit 1
-    fi
-done
+    # Vérification structure
+    required_tables=("Produits" "Magasins" "Ventes")
+    missing_tables=()
 
-# Importation SQL avec vérification
-log_header "Importation des données"
-if [ ! -f "$IMPORT_SQL" ]; then
-    log_error "Script SQL d'importation manquant: $IMPORT_SQL"
-    exit 1
-fi
-
-    local sqlite_error_log
-    sqlite_error_log=$(mktemp)
-    # Assurer le nettoyage du fichier temporaire
-    trap 'rm -f "$sqlite_error_log"' EXIT INT TERM
-
-    if ! sqlite3 -bail "$DB_PATH" < "$IMPORT_SQL" 2> "$sqlite_error_log"; then
-        log_error "Échec de l'importation SQL (voir détails ci-dessous)"
-        if [ -s "$sqlite_error_log" ]; then
-             log_info "--- Début Erreur SQLite ---"
-             cat "$sqlite_error_log"
-             log_info "--- Fin Erreur SQLite ---"
-        else
-             log_warning "Aucun détail d'erreur SQLite capturé."
+    for table in "${required_tables[@]}"; do
+        if ! sqlite3 "$DB_PATH" "SELECT name FROM sqlite_master WHERE type='table' AND name='$table';" | grep -q "$table"; then
+            missing_tables+=("$table")
         fi
+    done
+
+    if [ ${#missing_tables[@]} -gt 0 ]; then
+        log_error "Tables manquantes: ${missing_tables[*]}"
         exit 1
     fi
-    rm -f "$sqlite_error_log" # Supprimer si succès
-    trap - EXIT INT TERM # Annuler le trap si succès
+
+    log_header "Téléchargement des données"
+    mkdir -p "$DATA_DIR"
+
+    # Liste des fichiers à télécharger
+    downloads=(
+        "$URL_PRODUITS:$DATA_DIR/$PRODUITS_FILE:produits"
+        "$URL_MAGASINS:$DATA_DIR/$MAGASINS_FILE:magasins"
+        "$URL_VENTES:$DATA_DIR/$VENTES_FILE:ventes"
+    )
+
+    pids=()
+    for item in "${downloads[@]}"; do
+        IFS=':' read -r url file label <<< "$item"
+        download_file "$url" "$file" "$label" &
+        pids+=($!)
+    done
+
+    # Attente avec gestion d'erreur
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            log_error "Un téléchargement a échoué"
+            exit 1
+        fi
+    done
+
+    # Validation des fichiers
+    for item in "${downloads[@]}"; do
+        IFS=':' read -r _ file _ <<< "$item"
+        if [ ! -s "$file" ]; then
+            log_error "Fichier vide ou manquant: $(basename "$file")"
+            exit 1
+        fi
+    done
+
+    # Importation SQL avec vérification
+    log_header "Importation des données"
+    if [ ! -f "$IMPORT_SQL" ]; then
+        log_error "Script SQL d'importation manquant: $IMPORT_SQL"
+        exit 1
+    fi
+
+        local sqlite_error_log
+        sqlite_error_log=$(mktemp)
+        # Assurer le nettoyage du fichier temporaire
+        trap 'rm -f "$sqlite_error_log"' EXIT INT TERM
+
+        if ! sqlite3 -bail "$DB_PATH" < "$IMPORT_SQL" 2> "$sqlite_error_log"; then
+            log_error "Échec de l'importation SQL (voir détails ci-dessous)"
+            if [ -s "$sqlite_error_log" ]; then
+                log_info "--- Début Erreur SQLite ---"
+                cat "$sqlite_error_log"
+                log_info "--- Fin Erreur SQLite ---"
+            else
+                log_warning "Aucun détail d'erreur SQLite capturé."
+            fi
+            exit 1
+        fi
+        rm -f "$sqlite_error_log" # Supprimer si succès
+        trap - EXIT INT TERM # Annuler le trap si succès
 
 # Vérification finale améliorée
 log_header "Vérification des données"

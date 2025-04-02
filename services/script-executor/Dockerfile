@@ -23,8 +23,8 @@
     # -------------------------------------------------------------------
     # 👤 Création utilisateur non-root (configurable)
     # -------------------------------------------------------------------
-    ARG USER_ID=1001
-    ARG GROUP_ID=1001
+    ARG USER_ID=1000
+    ARG GROUP_ID=1000
     RUN addgroup -g ${GROUP_ID} appgroup && \
         adduser -D -u ${USER_ID} -G appgroup appuser
     
@@ -33,7 +33,11 @@
     # -------------------------------------------------------------------
     WORKDIR /app
     RUN mkdir -p /app/{data,results,database,scripts,sql} && \
-        chown -R appuser:appgroup /app
+        mkdir -p /app/tmp/sql_imports && \
+        chown -R appuser:appgroup /app && \
+        chown -R appuser:appgroup /app/tmp && \
+        chmod -R 755 /app/tmp && \
+        chmod -R 770 /app/tmp/sql_imports
     
     # -------------------------------------------------------------------
     # 📂 Copie des fichiers (directe depuis le host)

@@ -1,11 +1,10 @@
 services:
   data-storage:
-    user: "${UID}:${GID}"
-    volumes:
-      - ./.env:/app/.env:ro
+    user: "${UID:-1000}:${GID:-1000}"
+    env_file:
+      - .env
 
   script-executor:
-    user: "${UID}:${GID}"
-    # Le montage de .env est redondant car env_file est utilisé.
+    user: "${UID:-1000}:${GID:-1000}"
     env_file:
       - .env

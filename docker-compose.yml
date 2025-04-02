@@ -4,7 +4,6 @@ services:
       context: .
       dockerfile: services/data-storage/Dockerfile
     container_name: data-storage
-    user: "${UID}:${GID}"
     volumes:
       - db-data:/app/database
     networks:
