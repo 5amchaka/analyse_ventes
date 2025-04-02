@@ -1,7 +1,7 @@
 #!/bin/bash
 # preprocess-sql.sh - Prétraitement des templates SQL
 
-source /app/scripts/common.sh
+source /app/scripts/logging.sh
 source /app/scripts/env-loader.sh|| {
     log_error "Échec du chargement de l'environnement"
     exit 1
@@ -40,7 +40,7 @@ main() {
   log_header "PRÉTRAITEMENT SQL"
   # Prétraiter le fichier import-data.sql
   preprocess_sql_template \
-    "$SCRIPTS_DIR/import-data-template.sql" \
+    "$SQL_DIR/import-data-template.sql" \
     "$DATA_DIR/import-data.sql" || return 1
   
   # Ajouter d'autres prétraitements de fichiers SQL si nécessaire

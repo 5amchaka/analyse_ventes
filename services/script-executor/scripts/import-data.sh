@@ -1,14 +1,6 @@
 #!/bin/bash
 
-source /app/scripts/common.sh
-
-main() {
-    log_header "Hello données de ventes"
-    log_header "Informations système"
-    echo "- Date et heure: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    log_info "- SQLite version: $(sqlite3 --version | head -n1)"
-    
-}
+source /app/scripts/logging.sh
 
 error_handler() {
     log_error "Erreur ligne $1"
@@ -18,14 +10,72 @@ error_handler() {
 trap 'error_handler $LINENO' ERR
 set -euo pipefail
 
-main "$@"
+# Fonction de téléchargement robuste
+function download_file() {
+    local url=$1 file=$2 label=$3
+    local max_retries=3 retry_count=0 timeout=30
 
-# Chargement environnement
-set -eo pipefail
-source /app/scripts/env-loader.sh || {
-    log_error "Échec du chargement de l'environnement"
-    exit 1
+    # Normalisation de l'URL
+    [[ "$url" =~ ^https?:// ]] || url="https://$url"
+
+    log_info "Début du téléchargement: $label"
+    log_verbose "Source: ${url}" # Affichage URL complète en verbose
+    log_verbose "Destination: $file"
+
+    while [ $retry_count -lt $max_retries ]; do
+        if curl -sS -L --fail \
+           --connect-timeout $timeout \
+           --max-time $((timeout * 2)) \
+           "$url" -o "$file.tmp"; then
+            
+            if [ -s "$file.tmp" ]; then
+                mv "$file.tmp" "$file"
+                log_success "Téléchargement réussi: $(basename "$file")"
+                log_verbose "Taille: $(du -h "$file" | cut -f1)"
+                return 0
+            else
+                log_warning "Fichier vide reçu pour $label"
+                rm -f "$file.tmp" # Nettoyer le fichier vide
+            fi
+        else
+             log_warning "Échec temporaire du téléchargement pour $label (curl exit code: $?)"
+        fi
+
+        ((retry_count++))
+        local sleep_time=$((retry_count * 2))
+        timeout=$((timeout + 10)) # Augmentation progressive
+        log_warning "Nouvelle tentative ($retry_count/$max_retries) dans ${sleep_time}s..."
+        sleep "$sleep_time"
+    done
+
+    log_error "Échec définitif du téléchargement pour $label"
+    rm -f "$file.tmp" # Nettoyer en cas d'échec final
+    return 1
 }
+
+# --- Fonction Principale ---
+main() {
+    log_header "IMPORTATION DES DONNÉES DE VENTES"
+
+    # Chargement environnement
+set -eo pipefail
+    source /app/scripts/env-loader.sh || {
+        log_error "Échec critique du chargement de l'environnement"
+        exit 1
+    }
+
+    # Validation des variables d'environnement nécessaires
+    validate_env # Fonction de logging.sh (vérifie DB_PATH par défaut)
+    local required_vars=("DATA_DIR" "URL_PRODUITS" "PRODUITS_FILE" "URL_MAGASINS" "MAGASINS_FILE" "URL_VENTES" "VENTES_FILE")
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var}" ]; then
+            log_error "Variable d'environnement manquante: $var"
+            exit 1
+        fi
+    done
+
+    # Définition du chemin du script SQL d'importation
+    local IMPORT_SQL="$DATA_DIR/import-data.sql"
 
 # Vérification base de données
 if [ ! -f "$DB_PATH" ]; then
@@ -48,43 +98,6 @@ if [ ${#missing_tables[@]} -gt 0 ]; then
     log_error "Tables manquantes: ${missing_tables[*]}"
     exit 1
 fi
-
-function download_file() {
-    local url=$1 file=$2 label=$3
-    local max_retries=3 retry_count=0 timeout=30
-
-    # Normalisation de l'URL
-    [[ "$url" =~ ^https?:// ]] || url="https://$url"
-
-    log_info "Début du téléchargement: $label"
-    echo "Source: ${url##*/}"
-    echo "Destination: $file"
-
-    while [ $retry_count -lt $max_retries ]; do
-        if curl -sS -L --fail \
-           --connect-timeout $timeout \
-           --max-time $((timeout * 2)) \
-           "$url" -o "$file.tmp"; then
-            
-            if [ -s "$file.tmp" ]; then
-                mv "$file.tmp" "$file"
-                log_success "Téléchargement réussi"
-                echo "Taille: $(du -h "$file" | cut -f1)"
-                return 0
-            else
-                log_warning "Fichier vide reçu"
-            fi
-        fi
-
-        ((retry_count++))
-        timeout=$((timeout + 10)) # Augmentation progressive
-        log_warning "Nouvelle tentative dans $((retry_count * 2)) secondes..."
-        sleep $((retry_count * 2))
-    done
-
-    log_error "Échec définitif du téléchargement"
-    return 1
-}
 
 log_header "Téléchargement des données"
 mkdir -p "$DATA_DIR"
@@ -127,12 +140,24 @@ if [ ! -f "$IMPORT_SQL" ]; then
     exit 1
 fi
 
-if ! sqlite3 -bail "$DB_PATH" < "$IMPORT_SQL" 2>/tmp/sqlite_errors; then
-    log_error "Échec de l'importation SQL"
-    [ -s /tmp/sqlite_errors ] && log_info "Détails:\n$(cat /tmp/sqlite_errors)"
-    exit 1
-fi
-rm -f /tmp/sqlite_errors
+    local sqlite_error_log
+    sqlite_error_log=$(mktemp)
+    # Assurer le nettoyage du fichier temporaire
+    trap 'rm -f "$sqlite_error_log"' EXIT INT TERM
+
+    if ! sqlite3 -bail "$DB_PATH" < "$IMPORT_SQL" 2> "$sqlite_error_log"; then
+        log_error "Échec de l'importation SQL (voir détails ci-dessous)"
+        if [ -s "$sqlite_error_log" ]; then
+             log_info "--- Début Erreur SQLite ---"
+             cat "$sqlite_error_log"
+             log_info "--- Fin Erreur SQLite ---"
+        else
+             log_warning "Aucun détail d'erreur SQLite capturé."
+        fi
+        exit 1
+    fi
+    rm -f "$sqlite_error_log" # Supprimer si succès
+    trap - EXIT INT TERM # Annuler le trap si succès
 
 # Vérification finale améliorée
 log_header "Vérification des données"
@@ -160,4 +185,10 @@ EOF
 )
 
 # Affichage avec formatage natif SQLite
-echo "$results"
+    echo "$results"
+
+    log_success "Importation et vérification terminées avec succès."
+}
+
+# --- Exécution ---
+main "$@"

@@ -4,4 +4,4 @@ services:
 
   script-executor:
     #restart: unless-stopped
-    command: ["/app/scripts/start-service.sh"]
+    command: ["/bin/bash", "-c", "/app/scripts/run-pipeline.sh"]

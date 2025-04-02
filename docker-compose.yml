@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   data-storage:
     build:
@@ -9,8 +7,6 @@ services:
     user: "${UID}:${GID}"
     volumes:
       - db-data:/app/database
-      - ./init-scripts:/app/init-scripts:ro
-      - ./.env:/app/.env:ro
     networks:
       - ventes-network
     healthcheck:

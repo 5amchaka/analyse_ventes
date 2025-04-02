@@ -6,7 +6,6 @@ services:
 
   script-executor:
     user: "${UID}:${GID}"
-    volumes:
-      - ./.env:/app/.env:ro
+    # Le montage de .env est redondant car env_file est utilisé.
     env_file:
       - .env

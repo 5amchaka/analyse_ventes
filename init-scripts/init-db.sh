@@ -1,7 +1,7 @@
 #!/bin/bash
 # init-db.sh - Initialisation de la base de données
 
-source /app/scripts/common.sh
+source /app/scripts/logging.sh
 
 
 

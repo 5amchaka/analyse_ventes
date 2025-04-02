@@ -36,7 +36,7 @@
   # 📂 Copie des fichiers
   # -------------------------------------------------------------------
   COPY --chown=dbuser:dbgroup services/data-storage/entrypoint.sh /entrypoint.sh
-  RUN chmod 750 /entrypoint.sh  # rx pour l'utilisateur, aucun droit pour les autres
+  RUN chmod 750 /entrypoint.sh  # rx pour l''utilisateur, aucun droit pour les autres
   
   # -------------------------------------------------------------------
   # 🗃️ Configuration des volumes

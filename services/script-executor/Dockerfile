@@ -5,7 +5,7 @@
 
     # 📋 Metadata
     LABEL description="Service d'exécution des scripts d'analyse de ventes"
-    LABEL version="1.0"
+    LABEL version="2.0"
 
     # -------------------------------------------------------------------
     # 📦 Dépendances strictement nécessaires
@@ -32,34 +32,26 @@
     # 📁 Structure des répertoires
     # -------------------------------------------------------------------
     WORKDIR /app
-    RUN mkdir -p /app/{data,results,database,scripts} && \
+    RUN mkdir -p /app/{data,results,database,scripts,sql} && \
         chown -R appuser:appgroup /app
     
     # -------------------------------------------------------------------
     # 📂 Copie des fichiers (directe depuis le host)
     # -------------------------------------------------------------------
     COPY --chown=appuser:appgroup services/script-executor/scripts/ /app/scripts/
-    COPY --chown=appuser:appgroup init-scripts/ /app/scripts/
-    COPY --chown=appuser:appgroup sql/ /app/scripts/
-    COPY --chown=appuser:appgroup services/script-executor/scripts/env-loader.sh /app/
+    COPY --chown=appuser:appgroup init-scripts/init-db.sh /app/scripts/
+    COPY --chown=appuser:appgroup sql/ /app/sql/
+    COPY --chown=appuser:appgroup .env /app/.env
     
     # -------------------------------------------------------------------
     # 🔐 Permissions
     # -------------------------------------------------------------------
-    RUN chmod +x /app/env-loader.sh && \
-        find /app/scripts -type f -name "*.sh" -exec chmod +x {} \;
-    
+    RUN find /app/scripts -type f -name "*.sh" -exec chmod +x {} \;
+        
     # -------------------------------------------------------------------
-    # 🩹 Healthcheck
-    # -------------------------------------------------------------------
-    HEALTHCHECK --interval=30s --timeout=3s \
-      CMD pgrep -f start-service.sh || exit 1
-    
-    # -------------------------------------------------------------------
-    # 📡 Configuration runtime
+    # � Configuration runtime
     # -------------------------------------------------------------------
     VOLUME ["/app/database", "/app/data", "/app/results"]
-    EXPOSE 8080
     USER appuser
     ENTRYPOINT ["/sbin/tini", "--"]
-    CMD ["/app/scripts/start-service.sh"]
+    CMD ["/bin/bash", "/app/scripts/run-pipeline.sh"]
