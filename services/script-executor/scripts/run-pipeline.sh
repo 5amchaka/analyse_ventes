@@ -26,6 +26,47 @@ run_step() {
   return 0
 }
 
+clean_temp_files() {
+    log_header "Nettoyage des fichiers temporaires"
+    
+    # Nettoyage des fichiers SQL temporaires
+    if [ -d "$TEMP_SQL_DIR" ] && [ -n "$TEMP_SQL_DIR" ]; then
+        log_info "Nettoyage du répertoire $TEMP_SQL_DIR"
+        find "$TEMP_SQL_DIR" -type f -name "*.sql" -exec rm -f {} \;
+    fi
+    
+    log_success "Nettoyage terminé"
+}
+
+verify_cleanup() {
+    log_header "Vérification du nettoyage"
+    
+    # Vérification des fichiers SQL temporaires
+    if [ -d "$TEMP_SQL_DIR" ]; then
+        temp_files_count=$(find "$TEMP_SQL_DIR" -type f -name "*.sql" | wc -l)
+        
+        if [ "$temp_files_count" -eq 0 ]; then
+            log_success "Nettoyage réussi: Aucun fichier SQL temporaire trouvé dans $TEMP_SQL_DIR"
+        else
+            log_warning "Nettoyage incomplet: $temp_files_count fichier(s) SQL temporaire(s) trouvé(s) dans $TEMP_SQL_DIR"
+            
+            # Afficher les fichiers qui n'ont pas été supprimés (mode verbose ou debug)
+            if [ "$LOG_LEVEL" -ge "$LOG_LEVEL_VERBOSE" ]; then
+                log_verbose "Liste des fichiers non supprimés:"
+                find "$TEMP_SQL_DIR" -type f -name "*.sql" -exec ls -l {} \; | sed 's/^/  /'
+            fi
+        fi
+    else
+        log_warning "Répertoire $TEMP_SQL_DIR non trouvé pour vérification"
+    fi
+    
+    # Vérification de l'espace disque pour détection de problèmes potentiels
+    if [ "$LOG_LEVEL" -ge "$LOG_LEVEL_DEBUG" ]; then
+        log_debug "État de l'espace disque après nettoyage:"
+        df -h /app/tmp | sed 's/^/  /'
+    fi
+}
+
 main() {
     log_header "DÉMARRAGE DU SERVICE D'ANALYSE"
     
@@ -82,3 +123,6 @@ else
   log_error "Des erreurs se sont produites lors de l'exécution du service"
   exit 1
 fi
+
+clean_temp_files
+verify_cleanup
