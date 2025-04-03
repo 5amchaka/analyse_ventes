@@ -5,15 +5,13 @@
 -- Requête pour calculer le chiffre d'affaires total
 CREATE TEMPORARY TABLE IF NOT EXISTS temp_ca_total AS
 SELECT 
-    SUM(v.quantite * p.prix) AS chiffre_affaires_total,
-    MIN(v.date) AS date_debut,
-    MAX(v.date) AS date_fin,
-    COUNT(DISTINCT v.id_vente) AS nombre_ventes,
-    SUM(v.quantite) AS quantite_totale
-FROM 
-    Ventes v
-JOIN 
-    Produits p USING(id_produit);
+    SUM(montant_vente) AS chiffre_affaires_total,
+    MIN(date) AS date_debut,
+    MAX(date) AS date_fin,
+    COUNT(DISTINCT id_vente) AS nombre_ventes,
+    SUM(quantite) AS quantite_totale
+FROM
+    Vue_VentesCompletes;
 
 -- Enregistrer l'analyse dans la table dédiée
 INSERT INTO AnalysesCA (date_analyse, periode, ca_total)
@@ -31,19 +29,17 @@ FROM
 -- Requête pour analyser les ventes par produit
 CREATE TEMPORARY TABLE IF NOT EXISTS temp_ca_produits AS
 SELECT 
-    p.id_produit,
-    p.nom,
-    SUM(v.quantite) AS quantite_totale,
-    SUM(v.quantite * p.prix) AS chiffre_affaires,
-    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
-    COUNT(DISTINCT v.id_vente) AS nombre_ventes,
-    ROUND(AVG(v.quantite), 2) AS quantite_moyenne_par_vente
+    id_produit,
+    nom_produit AS nom,
+    SUM(quantite) AS quantite_totale,
+    SUM(montant_vente) AS chiffre_affaires,
+    ROUND(SUM(montant_vente) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
+    COUNT(DISTINCT id_vente) AS nombre_ventes,
+    ROUND(AVG(quantite), 2) AS quantite_moyenne_par_vente
 FROM 
-    Ventes v
-JOIN 
-    Produits p USING(id_produit)
+    Vue_VentesCompletes
 GROUP BY 
-    p.id_produit
+    id_produit
 ORDER BY 
     chiffre_affaires DESC;
 
@@ -64,21 +60,17 @@ FROM
 -- Requête pour analyser les ventes par ville
 CREATE TEMPORARY TABLE IF NOT EXISTS temp_ca_villes AS
 SELECT 
-    m.ville,
-    SUM(v.quantite) AS quantite_totale,
-    SUM(v.quantite * p.prix) AS chiffre_affaires,
-    ROUND(SUM(v.quantite * p.prix) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
-    COUNT(DISTINCT v.id_vente) AS nombre_ventes,
-    COUNT(DISTINCT p.id_produit) AS nombre_produits_differents,
-    ROUND(SUM(v.quantite * p.prix) / m.nombre_salaries, 2) AS ca_par_salarie
+    ville,
+    SUM(quantite) AS quantite_totale,
+    SUM(montant_vente) AS chiffre_affaires,
+    ROUND(SUM(montant_vente) * 100.0 / (SELECT chiffre_affaires_total FROM temp_ca_total), 2) AS pourcentage_ca,
+    COUNT(DISTINCT id_vente) AS nombre_ventes,
+    COUNT(DISTINCT id_produit) AS nombre_produits_differents,
+    ROUND(SUM(montant_vente) / nombre_salaries, 2) AS ca_par_salarie
 FROM 
-    Ventes v
-JOIN 
-    Produits p USING(id_produit)
-JOIN 
-    Magasins m USING(id_magasin)
+    Vue_VentesCompletes
 GROUP BY 
-    m.ville
+    ville
 ORDER BY 
     chiffre_affaires DESC;
 
