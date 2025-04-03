@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source /app/scripts/logging.sh
+source /app/scripts/env-loader.sh
 
 error_handler() {
     log_error "Erreur ligne $1"
@@ -105,14 +106,14 @@ main() {
 
     # Liste des fichiers à télécharger
     downloads=(
-        "$URL_PRODUITS:$DATA_DIR/$PRODUITS_FILE:produits"
-        "$URL_MAGASINS:$DATA_DIR/$MAGASINS_FILE:magasins"
-        "$URL_VENTES:$DATA_DIR/$VENTES_FILE:ventes"
+        "$URL_PRODUITS|$DATA_DIR/$PRODUITS_FILE|produits"
+        "$URL_MAGASINS|$DATA_DIR/$MAGASINS_FILE|magasins"
+        "$URL_VENTES|$DATA_DIR/$VENTES_FILE|ventes"
     )
 
     pids=()
     for item in "${downloads[@]}"; do
-        IFS=':' read -r url file label <<< "$item"
+        IFS='|' read -r url file label <<< "$item"
         download_file "$url" "$file" "$label" &
         pids+=($!)
     done
@@ -127,7 +128,7 @@ main() {
 
     # Validation des fichiers
     for item in "${downloads[@]}"; do
-        IFS=':' read -r _ file _ <<< "$item"
+        IFS='|' read -r _ file _ <<< "$item"
         if [ ! -s "$file" ]; then
             log_error "Fichier vide ou manquant: $(basename "$file")"
             exit 1
